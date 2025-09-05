@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  medlink-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: medlink-backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    command: >
+      sh -c "npx prisma migrate deploy && npm start"
+    depends_on:
+      # If you were running Postgres in Docker, you would add it here.
+      # Since we're using NeonDB, there's no DB dependency in this compose file.
+      # Make sure your DATABASE_URL in .env points to your NeonDB instance.
+      - db-placeholder
+
+# This is a placeholder to demonstrate the `depends_on` structure.
+# Do not run this service. It's here for illustrative purposes.
+# Your actual database is external (NeonDB).
+services:
+  db-placeholder:
+    image: alpine
+    command: echo "I am a placeholder for an external database."

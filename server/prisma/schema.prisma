@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String           @id @default(cuid())
+  role            Role
+  name            String
+  email           String?          @unique
+  password        String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  patientProfile  PatientProfile?
+  doctorProfile   DoctorProfile?
+  refreshTokens   RefreshToken[]
+}
+
+model PatientProfile {
+  id            String          @id @default(cuid())
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String          @unique
+  abhaNumber    String?         @unique // <-- MODIFIED: Made optional
+  aadharNumber  String?         @unique // <-- ADDED: New field for Aadhaar
+  demographics  Json
+  consultations Consultation[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([abhaNumber])
+  @@index([aadharNumber]) // <-- ADDED: Index for new field
+}
+
+model DoctorProfile {
+  id            String         @id @default(cuid())
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String         @unique
+  hprId         String         @unique
+  speciality    String
+  verified      Boolean        @default(false)
+  consultations Consultation[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([hprId])
+}
+
+model Consultation {
+  id          String        @id @default(cuid())
+  patient     PatientProfile @relation(fields: [patientId], references: [id])
+  patientId   String
+  doctor      DoctorProfile  @relation(fields: [doctorId], references: [id])
+  doctorId    String
+  date        DateTime      @default(now())
+  diagnoses   Json // Array of { name: string, codes: [{ system, code, display }] }
+  medications Json // Array of { name, dosage, frequency, duration }
+  notes       String?
+  fhirBundle  Json
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Terminology {
+  id      String   @id @default(cuid())
+  term    String
+  aliases String[]
+  codes   Json // Array of { system: string, code: string, display: string }
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
