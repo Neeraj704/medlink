@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../api';
+import Loader from '../../components/Loader';
 
 import Step1PatientVitals from '../../components/consultation/Step1PatientVitals';
 import Step2Diagnosis from '../../components/consultation/Step2Diagnosis';
@@ -25,17 +26,12 @@ const NewConsultation = () => {
     });
 
     useEffect(() => {
-        // This effect runs ONCE on mount to check for patient data.
         if (location.state?.patient) {
             setPatient(location.state.patient);
         } else {
-            // If patient data is missing, we redirect back to the dashboard immediately.
             console.error("NewConsultation loaded without patient data. Redirecting.");
             navigate('/doctor/dashboard', { replace: true });
         }
-        // We disable the exhaustive-deps rule here intentionally.
-        // Adding 'location' or 'navigate' would re-create the infinite loop.
-        // This check only needs to happen on the initial mount.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -98,9 +94,8 @@ const NewConsultation = () => {
         }
     };
 
-    // Render a loader or null while the patient state is being set to prevent rendering the form prematurely
     if (!patient) {
-        return <Loader />;
+        return <div className="h-96 flex items-center justify-center"><Loader /></div>;
     }
 
     return (

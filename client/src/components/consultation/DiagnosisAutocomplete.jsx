@@ -1,5 +1,3 @@
-// FILE: client/src/components/consultation/DiagnosisAutocomplete.jsx
-
 import React, { useState, useEffect, useCallback } from 'react';
 import Papa from 'papaparse';
 
@@ -9,46 +7,70 @@ const DiagnosisAutocomplete = ({ onSelect, initialValue = '' }) => {
     const [suggestions, setSuggestions] = useState([]);
     const [isActive, setIsActive] = useState(false);
 
+    // Fetch and parse the CSV data once when the component mounts
     useEffect(() => {
         fetch('/query_database.csv')
-            .then(response => response.text())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok");
+                }
+                return response.text();
+            })
             .then(csvText => {
                 Papa.parse(csvText, {
                     header: true,
                     skipEmptyLines: true,
-                    complete: (results) => setData(results.data),
+                    complete: (results) => {
+                        // The first column name is blank, remove it for cleaner data
+                        const cleanData = results.data.map(row => {
+                            delete row[""];
+                            return row;
+                        });
+                        setData(cleanData);
+                    },
                 });
+            })
+            .catch(error => {
+                console.error("Failed to load or parse diagnosis data:", error);
             });
     }, []);
 
+    // Memoized filter function to avoid re-creation
     const filterSuggestions = useCallback(() => {
         if (!query || query.length < 3) {
             setSuggestions([]);
             return;
         }
         const lowerCaseQuery = query.toLowerCase();
-        const filtered = data
-            .filter(row => row['ICD11_Title']?.toLowerCase().includes(lowerCaseQuery))
-            .slice(0, 10);
+        
+        // Search across multiple relevant fields
+        const filtered = data.filter(row => 
+            row['ICD11_Title']?.toLowerCase().includes(lowerCaseQuery) ||
+            row['Ayurveda_NAMC_CODE']?.toLowerCase().includes(lowerCaseQuery) ||
+            row['Siddha_NAMC_CODE']?.toLowerCase().includes(lowerCaseQuery) ||
+            row['Unani_NUMC_CODE']?.toLowerCase().includes(lowerCaseQuery)
+        ).slice(0, 10);
+        
         setSuggestions(filtered);
         setIsActive(filtered.length > 0);
     }, [query, data]);
 
+    // Debounced effect for filtering
     useEffect(() => {
         const handler = setTimeout(() => {
             filterSuggestions();
-        }, 300); // Debounce
+        }, 300);
         return () => clearTimeout(handler);
     }, [query, filterSuggestions]);
 
     const handleSelect = (item) => {
-        const displayName = item['ICD11_Title'];
+        const displayName = item['ICD11_Title'] || 'N/A';
         const codes = [
             { system: 'ICD-11', code: item['ICD11_Code'], display: displayName },
             { system: 'NAMASTE-Ayurveda', code: item['Ayurveda_NAMC_CODE'], display: displayName },
             { system: 'NAMASTE-Siddha', code: item['Siddha_NAMC_CODE'], display: displayName },
             { system: 'NAMASTE-Unani', code: item['Unani_NUMC_CODE'], display: displayName },
-        ].filter(c => c.code && c.code !== 'nan');
+        ].filter(c => c.code && c.code !== 'nan' && c.code.trim() !== '');
         
         onSelect({ name: displayName, codes });
         setQuery(displayName);
@@ -63,8 +85,9 @@ const DiagnosisAutocomplete = ({ onSelect, initialValue = '' }) => {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onFocus={() => setIsActive(true)}
-                onBlur={() => setTimeout(() => setIsActive(false), 200)} // delay to allow click
+                onBlur={() => setTimeout(() => setIsActive(false), 200)}
                 placeholder="Type diagnosis to search..."
+                autoComplete="off"
                 className="flex-grow p-2 border border-gray-300 rounded-md w-full"
             />
             {isActive && suggestions.length > 0 && (
@@ -73,7 +96,7 @@ const DiagnosisAutocomplete = ({ onSelect, initialValue = '' }) => {
                         <li key={idx} onMouseDown={() => handleSelect(item)} className="p-2 hover:bg-gray-100 cursor-pointer">
                             <div className="font-semibold">{item['ICD11_Title']}</div>
                             <div className="text-xs text-gray-500">
-                                ICD-11: {item['ICD11_Code']} | Ayurveda: {item['Ayurveda_NAMC_CODE']}
+                                ICD-11: {item['ICD11_Code'] || 'N/A'} | Ayurveda: {item['Ayurveda_NAMC_CODE'] || 'N/A'}
                             </div>
                         </li>
                     ))}

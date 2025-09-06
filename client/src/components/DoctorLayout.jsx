@@ -17,20 +17,21 @@ const DoctorLayout = ({ children }) => {
               </Link>
               <div className="hidden md:block">
                 <div className="ml-10 flex items-baseline space-x-4">
-                   <NavLink to="/doctor/dashboard" className={({isActive}) => `px-3 py-2 rounded-md text-sm font-medium ${isActive ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-200'}`}>
+                  <NavLink
+                    to="/doctor/dashboard"
+                    className={({ isActive }) => `px-3 py-2 rounded-md text-sm font-medium ${isActive ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-200'}`}
+                  >
                     Dashboard
                   </NavLink>
-                   <NavLink to="/doctor/consultation/new" className={({isActive}) => `px-3 py-2 rounded-md text-sm font-medium ${isActive ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-200'}`}>
-                    New Consultation
-                  </NavLink>
+                  {/* The "New Consultation" link has been removed to enforce the correct workflow */}
                 </div>
               </div>
             </div>
-             <div className="flex items-center">
-                <span className="text-gray-800 text-sm mr-4">Welcome, Dr. {user?.name}</span>
-                <button onClick={logout} className="bg-red-500 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-red-600">
-                  Logout
-                </button>
+            <div className="flex items-center">
+              <span className="text-gray-800 text-sm mr-4">Welcome, Dr. {user?.name}</span>
+              <button onClick={logout} className="bg-red-500 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-red-600">
+                Logout
+              </button>
             </div>
           </div>
         </div>
