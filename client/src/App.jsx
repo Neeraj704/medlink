@@ -10,6 +10,7 @@ import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import PatientLayout from './components/PatientLayout';
 import DoctorLayout from './components/DoctorLayout';
+import DoctorChat from './pages/doctor/DoctorChat'; // <-- Import the new component
 
 function App() {
   return (
@@ -39,6 +40,16 @@ function App() {
           <ProtectedRoute role="DOCTOR">
             <DoctorLayout>
               <DoctorDashboard />
+            </DoctorLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/doctor/chat" // <-- Add the new route
+        element={
+          <ProtectedRoute role="DOCTOR">
+            <DoctorLayout>
+              <DoctorChat />
             </DoctorLayout>
           </ProtectedRoute>
         }

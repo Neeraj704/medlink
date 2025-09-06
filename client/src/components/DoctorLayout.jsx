@@ -23,7 +23,12 @@ const DoctorLayout = ({ children }) => {
                   >
                     Dashboard
                   </NavLink>
-                  {/* The "New Consultation" link has been removed to enforce the correct workflow */}
+                  <NavLink
+                    to="/doctor/chat"
+                    className={({ isActive }) => `px-3 py-2 rounded-md text-sm font-medium ${isActive ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-200'}`}
+                  >
+                    AI Chatbot
+                  </NavLink>
                 </div>
               </div>
             </div>

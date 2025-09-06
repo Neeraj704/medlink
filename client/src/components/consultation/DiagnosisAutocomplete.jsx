@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Papa from 'papaparse';
+import CsvFile from '../../assets/query_database.csv';
 
 const DiagnosisAutocomplete = ({ onSelect, initialValue = '' }) => {
     const [data, setData] = useState([]);
@@ -7,43 +8,31 @@ const DiagnosisAutocomplete = ({ onSelect, initialValue = '' }) => {
     const [suggestions, setSuggestions] = useState([]);
     const [isActive, setIsActive] = useState(false);
 
-    // Fetch and parse the CSV data once when the component mounts
     useEffect(() => {
-        fetch('/query_database.csv')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("Network response was not ok");
-                }
-                return response.text();
-            })
-            .then(csvText => {
-                Papa.parse(csvText, {
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: (results) => {
-                        // The first column name is blank, remove it for cleaner data
-                        const cleanData = results.data.map(row => {
-                            delete row[""];
-                            return row;
-                        });
-                        setData(cleanData);
-                    },
+        Papa.parse(CsvFile, {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                const cleanData = results.data.map(row => {
+                    delete row[""]; 
+                    return row;
                 });
-            })
-            .catch(error => {
-                console.error("Failed to load or parse diagnosis data:", error);
-            });
+                setData(cleanData);
+            },
+            error: (err) => {
+                console.error("Error parsing CSV file:", err);
+            }
+        });
     }, []);
 
-    // Memoized filter function to avoid re-creation
     const filterSuggestions = useCallback(() => {
-        if (!query || query.length < 3) {
+        if (!query || query.length < 2) {
             setSuggestions([]);
             return;
         }
         const lowerCaseQuery = query.toLowerCase();
         
-        // Search across multiple relevant fields
         const filtered = data.filter(row => 
             row['ICD11_Title']?.toLowerCase().includes(lowerCaseQuery) ||
             row['Ayurveda_NAMC_CODE']?.toLowerCase().includes(lowerCaseQuery) ||
@@ -55,7 +44,6 @@ const DiagnosisAutocomplete = ({ onSelect, initialValue = '' }) => {
         setIsActive(filtered.length > 0);
     }, [query, data]);
 
-    // Debounced effect for filtering
     useEffect(() => {
         const handler = setTimeout(() => {
             filterSuggestions();
@@ -93,10 +81,13 @@ const DiagnosisAutocomplete = ({ onSelect, initialValue = '' }) => {
             {isActive && suggestions.length > 0 && (
                 <ul className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
                     {suggestions.map((item, idx) => (
-                        <li key={idx} onMouseDown={() => handleSelect(item)} className="p-2 hover:bg-gray-100 cursor-pointer">
-                            <div className="font-semibold">{item['ICD11_Title']}</div>
-                            <div className="text-xs text-gray-500">
-                                ICD-11: {item['ICD11_Code'] || 'N/A'} | Ayurveda: {item['Ayurveda_NAMC_CODE'] || 'N/A'}
+                        <li key={idx} onMouseDown={() => handleSelect(item)} className="p-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0">
+                            <div className="font-semibold text-sm text-gray-800">{item['ICD11_Title']}</div>
+                            <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                                <span><strong>ICD-11:</strong> {item['ICD11_Code'] || 'N/A'}</span>
+                                <span><strong>Ayurveda:</strong> {item['Ayurveda_NAMC_CODE'] || 'N/A'}</span>
+                                <span><strong>Siddha:</strong> {item['Siddha_NAMC_CODE'] || 'N/A'}</span>
+                                <span><strong>Unani:</strong> {item['Unani_NUMC_CODE'] || 'N/A'}</span>
                             </div>
                         </li>
                     ))}
