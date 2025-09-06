@@ -1,23 +1,19 @@
-// FILE: client/vite.config.ts
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
-import path from "path";
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite' // importing tailwind here
 
+// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
-  assetsInclude: ['**/*.csv'], // Keep this for the diagnosis search
+  plugins: [react(), tailwindcss()],
+  // Add this line to treat .csv files as static assets
+  assetsInclude: ['**/*.csv'],
   server: {
     proxy: {
       '/api': {
-        target: 'https://medlink2.onrender.com', // Your production backend URL
+        target: 'https://medlink2.onrender.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     }
-  },
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
-});
+  }
+})
