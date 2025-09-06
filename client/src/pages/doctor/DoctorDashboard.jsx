@@ -1,131 +1,117 @@
+// FILE: client/src/pages/doctor/NewConsultation.jsx
+
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../api';
-import Loader from '../../components/Loader';
 
-const DoctorDashboard = () => {
-  const [stats, setStats] = useState({ totalConsultations: 0, totalPatients: 0 });
-  const [recentConsultations, setRecentConsultations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [searchIdentifier, setSearchIdentifier] = useState('');
-  const [searchResult, setSearchResult] = useState(null);
-  const [searchError, setSearchError] = useState('');
-  const navigate = useNavigate();
+import Step1PatientVitals from '../../components/consultation/Step1PatientVitals';
+import Step2Diagnosis from '../../components/consultation/Step2Diagnosis';
+import Step3Medication from '../../components/consultation/Step3Medication';
+import Step4Review from '../../components/consultation/Step4Review';
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const response = await api.get('/doctor/dashboard');
-        setStats(response.data.stats);
-        setRecentConsultations(response.data.recentConsultations);
-      } catch (err) {
-        setError('Failed to fetch dashboard data.');
-      } finally {
-        setLoading(false);
-      }
+const NewConsultation = () => {
+    const location = useLocation();
+    const navigate = useNavigate();
+    
+    const [step, setStep] = useState(1);
+    const [patient, setPatient] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+    // State for the entire consultation
+    const [consultationData, setConsultationData] = useState({
+        vitals: {},
+        diagnoses: [{ name: '', codes: [] }],
+        medications: [{ name: '', dosage: '', frequency: '', duration: '' }],
+        notes: ''
+    });
+
+    useEffect(() => {
+        if (location.state?.patient) {
+            setPatient(location.state.patient);
+        } else {
+            // Redirect if no patient data is passed
+            navigate('/doctor/dashboard');
+        }
+    }, [location, navigate]);
+
+    const handleDownloadJson = (data, filename) => {
+        const jsonStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     };
-    fetchDashboardData();
-  }, []);
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    setSearchError('');
-    setSearchResult(null);
-    if (!searchIdentifier) return;
-    try {
-        const response = await api.get(`/doctor/patients?identifier=${searchIdentifier}`);
-        setSearchResult(response.data);
-    } catch(err) {
-        setSearchError(err.response?.data?.message || 'Error finding patient.');
-    }
-  };
+    const handleSubmit = async () => {
+        setLoading(true);
+        setError('');
+        setSuccess('');
 
-  const startNewConsultation = () => {
-      navigate('/doctor/consultation/new', { state: { patient: searchResult } });
-  }
+        const finalData = {
+            patientIdentifier: patient.abhaNumber,
+            vitals: consultationData.vitals,
+            diagnoses: consultationData.diagnoses.filter(d => d.name),
+            medications: consultationData.medications.filter(m => m.name),
+            notes: consultationData.notes,
+        };
 
-  if (loading) return <Loader />;
+        try {
+            const response = await api.post('/doctor/consultation', finalData);
+            setSuccess('Consultation saved! Downloading FHIR record...');
 
-  return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Doctor Dashboard</h1>
-      {error && <p className="text-red-500">{error}</p>}
+            // Trigger download of the FHIR bundle
+            const patientName = patient.name.replace(/\s+/g, '_');
+            handleDownloadJson(response.data.consultation.fhirBundle, `${patientName}_FHIR.json`);
+            
+            setTimeout(() => navigate('/doctor/dashboard'), 2000);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to save consultation.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Patients</dt>
-                  <dd className="text-3xl font-semibold text-gray-900">{stats.totalPatients}</dd>
-                </dl>
-              </div>
+    const nextStep = () => setStep(prev => prev + 1);
+    const prevStep = () => setStep(prev => prev - 1);
+
+    const renderStep = () => {
+        switch (step) {
+            case 1:
+                return <Step1PatientVitals data={consultationData.vitals} setData={vitals => setConsultationData(prev => ({ ...prev, vitals }))} onNext={nextStep} />;
+            case 2:
+                return <Step2Diagnosis data={consultationData.diagnoses} setData={diagnoses => setConsultationData(prev => ({ ...prev, diagnoses }))} onNext={nextStep} onBack={prevStep} />;
+            case 3:
+                return <Step3Medication data={consultationData.medications} setData={medications => setConsultationData(prev => ({ ...prev, medications }))} onNext={nextStep} onBack={prevStep} />;
+            case 4:
+                return <Step4Review consultationData={consultationData} setNotes={notes => setConsultationData(prev => ({ ...prev, notes }))} onBack={prevStep} onSubmit={handleSubmit} loading={loading} />;
+            default:
+                return <div>Invalid Step</div>;
+        }
+    };
+
+    if (!patient) return <p>Loading patient data...</p>;
+
+    return (
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-4xl mx-auto">
+            <h1 className="text-2xl font-bold mb-2">New Consultation</h1>
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                <h2 className="font-semibold text-lg">{patient.name}</h2>
+                <p className="text-sm text-gray-600">ABHA: {patient.abhaNumber}</p>
             </div>
-          </div>
-        </div>
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Total Consultations</dt>
-                  <dd className="text-3xl font-semibold text-gray-900">{stats.totalConsultations}</dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Patient Search */}
-      <div className="mt-8 bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Find a Patient</h2>
-          <form onSubmit={handleSearch} className="flex gap-4">
-              <input type="text" value={searchIdentifier} onChange={(e) => setSearchIdentifier(e.target.value)} placeholder="Enter Patient's ABHA Number" className="flex-grow p-2 border border-gray-300 rounded-md" />
-              <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Search</button>
-          </form>
-          {searchError && <p className="text-red-500 mt-2">{searchError}</p>}
-          {searchResult && (
-              <div className="mt-4 p-4 border border-green-300 bg-green-50 rounded-md flex justify-between items-center">
-                  <div>
-                      <p className="font-semibold">{searchResult.name}</p>
-                      <p className="text-sm text-gray-600">ABHA: {searchResult.abhaNumber}</p>
-                  </div>
-                  <button onClick={startNewConsultation} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Start Consultation</button>
-              </div>
-          )}
-      </div>
+            {error && <div className="bg-red-100 text-red-700 p-3 rounded-md mb-4">{error}</div>}
+            {success && <div className="bg-green-100 text-green-700 p-3 rounded-md mb-4">{success}</div>}
 
-      {/* Recent Consultations */}
-      <div className="mt-8">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h2>
-        <div className="bg-white shadow overflow-hidden rounded-md">
-          <ul role="list" className="divide-y divide-gray-200">
-            {recentConsultations.map((consultation) => (
-              <li key={consultation.id}>
-                <div className="px-4 py-4 sm:px-6">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-indigo-600 truncate">{consultation.patientName}</p>
-                    <div className="ml-2 flex-shrink-0 flex">
-                      <p className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">{new Date(consultation.date).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                  <div className="mt-2 sm:flex sm:justify-between">
-                    <div className="sm:flex">
-                      <p className="flex items-center text-sm text-gray-500">{consultation.summary}</p>
-                    </div>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+            {renderStep()}
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
-export default DoctorDashboard;
+export default NewConsultation;
