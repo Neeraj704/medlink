@@ -40,6 +40,9 @@ app.use('/doctor', doctorRoutes);
 app.use('/terminology', terminologyRoutes);
 app.use('/health', healthRoutes);
 app.use('/ml', mlRoutes);
+app.get("/ping", (req, res) => {
+  res.send("Hello World!");
+});
 
 // --- Error Handling ---
 app.use(errorHandler);
